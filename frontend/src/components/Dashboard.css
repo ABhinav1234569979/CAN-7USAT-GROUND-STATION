@@ -959,3 +959,335 @@ body {
     font-size: 0.78rem;
   }
 }
+
+/* MILESTONE 4 COMMAND SAFETY PANEL */
+.command-panel .panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.command-lock {
+  padding: 3px 7px;
+  border-radius: 999px;
+  font-size: 0.56rem;
+  letter-spacing: 0.12em;
+  border: 1px solid rgba(34, 211, 238, 0.22);
+}
+
+.command-lock.safe {
+  color: #86efac;
+  background: rgba(22, 163, 74, 0.12);
+  border-color: rgba(34, 197, 94, 0.35);
+}
+
+.command-lock.armed {
+  color: #fecaca;
+  background: rgba(239, 68, 68, 0.14);
+  border-color: rgba(248, 113, 113, 0.45);
+  box-shadow: 0 0 18px rgba(239, 68, 68, 0.12);
+}
+
+.arm-panel.armed {
+  border-color: rgba(248, 113, 113, 0.42);
+  box-shadow: inset 0 0 0 1px rgba(248, 113, 113, 0.08), 0 0 26px rgba(127, 29, 29, 0.14);
+}
+
+.command-note {
+  padding: 7px 9px;
+  border-radius: 10px;
+  color: #bae6fd;
+  background: rgba(14, 165, 233, 0.10);
+  border: 1px solid rgba(56, 189, 248, 0.20);
+  font-size: 0.7rem;
+  line-height: 1.35;
+}
+
+.danger-note {
+  color: #fecaca;
+  background: rgba(239, 68, 68, 0.10);
+  border-color: rgba(248, 113, 113, 0.25);
+}
+
+.command-button.active {
+  border-color: rgba(34, 197, 94, 0.48);
+  background: rgba(22, 163, 74, 0.12);
+  color: #bbf7d0;
+}
+
+.command-button.warning {
+  border-color: rgba(234, 179, 8, 0.32);
+  color: #fef08a;
+}
+
+.command-button.warning:not(:disabled) {
+  background: rgba(234, 179, 8, 0.10);
+}
+
+.command-button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  filter: saturate(0.45);
+}
+
+.confirm-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(2, 6, 23, 0.72);
+  backdrop-filter: blur(10px);
+}
+
+.confirm-modal {
+  width: min(520px, 100%);
+  border-radius: 22px;
+  padding: 22px;
+  background:
+    radial-gradient(circle at top left, rgba(34, 211, 238, 0.12), transparent 34%),
+    rgba(8, 16, 30, 0.96);
+  border: 1px solid rgba(34, 211, 238, 0.28);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.45);
+}
+
+.confirm-modal.danger {
+  border-color: rgba(248, 113, 113, 0.38);
+  background:
+    radial-gradient(circle at top left, rgba(239, 68, 68, 0.16), transparent 36%),
+    rgba(8, 16, 30, 0.97);
+}
+
+.confirm-kicker {
+  margin-bottom: 10px;
+  color: #67e8f9;
+  font-size: 0.68rem;
+  font-weight: 900;
+  letter-spacing: 0.16em;
+}
+
+.confirm-modal.danger .confirm-kicker {
+  color: #fca5a5;
+}
+
+.confirm-modal h2 {
+  margin: 0 0 10px;
+  color: #e0f2fe;
+  font-size: 1.45rem;
+  letter-spacing: 0.04em;
+}
+
+.confirm-modal p {
+  margin: 0;
+  color: #bdd9e8;
+  line-height: 1.55;
+}
+
+.confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 22px;
+}
+
+.confirm-actions button {
+  min-height: 40px;
+  padding: 9px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  background: rgba(15, 23, 42, 0.72);
+  color: #e0f2fe;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+}
+
+.confirm-cancel:hover {
+  border-color: rgba(125, 211, 252, 0.38);
+}
+
+.confirm-send {
+  border-color: rgba(34, 197, 94, 0.45) !important;
+  background: rgba(22, 163, 74, 0.16) !important;
+  color: #bbf7d0 !important;
+}
+
+.confirm-danger {
+  border-color: rgba(248, 113, 113, 0.55) !important;
+  background: rgba(127, 29, 29, 0.44) !important;
+  color: #fecaca !important;
+  box-shadow: 0 0 26px rgba(239, 68, 68, 0.16);
+}
+
+.event-row.danger strong {
+  color: #fca5a5;
+}
+
+.event-row.warning strong {
+  color: #fde68a;
+}
+
+.event-row.info strong {
+  color: #bae6fd;
+}
+
+/* MILESTONE 4.1 ALT SQUARE CHART GRID */
+.center-column {
+  min-height: 0;
+  display: grid !important;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 6px;
+}
+
+.chart-grid-console {
+  min-height: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-rows: minmax(0, 1fr) minmax(0, 0.78fr);
+  gap: 6px;
+}
+
+.chart-grid-console .chart-panel {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.square-chart .chart-body {
+  min-height: 0 !important;
+  height: 100%;
+  padding: 7px 9px;
+}
+
+.acceleration-wide {
+  grid-column: 1 / -1;
+}
+
+.acceleration-wide .chart-body {
+  min-height: 0 !important;
+  height: 100%;
+  padding: 7px 9px;
+}
+
+.chart-grid-console .mission-svg-chart {
+  min-height: 0 !important;
+  height: 100%;
+}
+
+.chart-grid-console .chart-value-badge {
+  top: 7px;
+  right: 8px;
+  min-width: 86px;
+  padding: 5px 8px;
+}
+
+.chart-grid-console .chart-value-badge strong {
+  font-size: 0.72rem;
+}
+
+.chart-grid-console .chart-axis-label {
+  font-size: 10px;
+}
+
+/* Give left command panel breathing room */
+.left-column {
+  display: grid !important;
+  grid-template-rows: minmax(170px, 0.9fr) auto minmax(220px, 1fr) !important;
+  min-height: 0 !important;
+  overflow: hidden !important;
+}
+
+.left-column .panel {
+  min-height: 0 !important;
+}
+
+.timeline-panel .panel-body {
+  padding: 8px !important;
+  overflow: hidden !important;
+}
+
+.current-state {
+  padding: 10px 8px !important;
+  margin-bottom: 8px !important;
+  font-size: 1.12rem !important;
+}
+
+.state-list {
+  gap: 5px !important;
+}
+
+.state-step {
+  min-height: 26px !important;
+  padding: 4px 8px !important;
+  font-size: 0.68rem !important;
+}
+
+.arm-panel .panel-body {
+  padding: 8px !important;
+}
+
+.status-grid {
+  gap: 6px !important;
+}
+
+.status-cell {
+  min-height: 44px !important;
+  padding: 6px 8px !important;
+}
+
+.command-panel {
+  min-height: 220px !important;
+  overflow: hidden !important;
+}
+
+.command-panel .panel-body {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 7px !important;
+  overflow-y: auto !important;
+  padding: 10px !important;
+  scrollbar-width: thin;
+}
+
+.command-button {
+  flex: 0 0 36px !important;
+  min-height: 36px !important;
+}
+
+@media (max-height: 760px) {
+  .center-column {
+    gap: 5px;
+  }
+
+  .chart-grid-console {
+    gap: 5px;
+    grid-template-rows: minmax(0, 1fr) minmax(0, 0.72fr);
+  }
+
+  .left-column {
+    grid-template-rows: minmax(150px, 0.8fr) auto minmax(210px, 1fr) !important;
+  }
+
+  .current-state {
+    padding: 8px !important;
+    font-size: 1rem !important;
+  }
+
+  .state-step {
+    min-height: 24px !important;
+  }
+
+  .status-cell {
+    min-height: 40px !important;
+  }
+
+  .command-panel {
+    min-height: 210px !important;
+  }
+
+  .command-button {
+    flex-basis: 34px !important;
+    min-height: 34px !important;
+  }
+}
