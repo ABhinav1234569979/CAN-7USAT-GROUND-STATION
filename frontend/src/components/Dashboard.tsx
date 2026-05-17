@@ -1,7 +1,7 @@
 ﻿import { useEffect, useMemo, useState } from 'react';
 import './Dashboard.css';
 import { useTelemetryStore } from '../stores/telemetryStore';
-import { TelemetryChart } from './TelemetryChart';
+import { OperatorChart } from './OperatorChart';
 import { Rocket3D } from './Rocket3D';
 import { GPSMap } from './GPSMap';
 
@@ -370,7 +370,7 @@ export const Dashboard = () => {
               <strong>{(latestPacket?.altitude_m ?? 0).toFixed(1)} m</strong>
             </div>
             <div className="telemetry-card">
-              <span>Velocity</span>
+              <span>Vertical Velocity</span>
               <strong>{(latestPacket?.velocity_ms ?? 0).toFixed(1)} m/s</strong>
             </div>
             <div className="telemetry-card">
@@ -378,7 +378,7 @@ export const Dashboard = () => {
               <strong>{maxAltitude.toFixed(1)} m</strong>
             </div>
             <div className="telemetry-card">
-              <span>Max Velocity</span>
+              <span>Max Vertical Velocity</span>
               <strong>{maxVelocity.toFixed(1)} m/s</strong>
             </div>
             <div className="telemetry-card wide-card">
@@ -391,21 +391,21 @@ export const Dashboard = () => {
             <div className="panel chart-panel square-chart">
               <div className="panel-header">Altitude Chart</div>
               <div className="chart-body">
-                <TelemetryChart data={altitudeHistory} unit="m" />
+                <OperatorChart data={altitudeHistory} label="Altitude" unit="m" />
               </div>
             </div>
 
             <div className="panel chart-panel square-chart">
-              <div className="panel-header">Velocity Chart</div>
+              <div className="panel-header">Vertical Velocity Chart</div>
               <div className="chart-body">
-                <TelemetryChart data={velocityHistory} unit="m/s" />
+                <OperatorChart data={velocityHistory} label="Vertical Velocity" unit="m/s" />
               </div>
             </div>
 
             <div className="panel chart-panel acceleration-wide">
-              <div className="panel-header">Derived Acceleration Chart</div>
+              <div className="panel-header">Derived Vertical Acceleration Chart</div>
               <div className="chart-body">
-                <TelemetryChart data={accelerationHistory} unit="m/s2" />
+                <OperatorChart data={accelerationHistory} label="Derived Vertical Acceleration" unit="m/s2" />
               </div>
             </div>
           </div>
@@ -413,7 +413,7 @@ export const Dashboard = () => {
 
         <section className="mission-column right-column">
           <div className="panel orientation-panel">
-            <div className="panel-header">3D Rocket Orientation</div>
+            <div className="panel-header">Attitude Visualizer</div>
             <div className="rocket-viewport">
               <Rocket3D
                 quat_w={latestPacket?.quat_w ?? 1}
@@ -535,4 +535,8 @@ export const Dashboard = () => {
 };
 
 export default Dashboard;
+
+
+
+
 
