@@ -608,61 +608,196 @@ const SystemLogs = () => {
 };
 
 const MissionConfig = () => {
-  const { mockMode, dataRateHz, systemStatus } = useTelemetryStore();
+  const { mockMode, dataRateHz, systemStatus, connected } = useTelemetryStore();
+
+  const activeMode = !connected
+    ? 'OFFLINE / WAITING'
+    : mockMode
+      ? 'MOCK / SIMULATION'
+      : 'LIVE TELEMETRY';
+
+  const activeProfile = !connected
+    ? 'no active telemetry link'
+    : mockMode
+      ? 'demo / original supported'
+      : 'external telemetry source';
+
+  const activeModeTag = !connected ? 'DERIVED' : mockMode ? 'SIMULATED' : 'REAL';
+  const profileTag = !connected ? 'DERIVED' : mockMode ? 'SIMULATED' : 'REAL';
 
   return (
-    <section className="aero-page">
-      <div className="aero-page-title">
+    <section className="aero-page config-page">
+      <div className="aero-page-title config-title">
         <div>
-          <span>SYSTEM CONFIGURATION</span>
+          <span>SYSTEM CONFIGURATION // CAN-7USAT</span>
           <h2>Mission Configuration</h2>
         </div>
-        <div className="aero-page-stamp">CAN-7USAT</div>
+        <div className="config-status-box">
+          <span>ACTIVE MODE</span>
+          <strong>{activeMode}</strong>
+        </div>
       </div>
 
-      <div className="aero-two-col">
-        <div className="aero-panel">
-          <div className="aero-panel-head">
-            <span>MISSION PARAMETERS</span>
-            <em>PROJECT CONFIG</em>
-          </div>
-          <div className="aero-table">
-            <div><span>MISSION</span><strong>CAN-7USAT</strong><DataTag type="REAL" /></div>
-            <div><span>FRONTEND</span><strong>React + Vite</strong><DataTag type="REAL" /></div>
-            <div><span>BACKEND</span><strong>FastAPI</strong><DataTag type="REAL" /></div>
-            <div><span>TELEMETRY_STREAM</span><strong>WebSocket</strong><DataTag type="REAL" /></div>
-            <div><span>MODE</span><strong>{mockMode ? 'MOCK' : 'LIVE'}</strong><DataTag type={mockMode ? 'SIMULATED' : 'REAL'} /></div>
-            <div><span>DATA_RATE</span><strong>{dataRateHz || 10} Hz</strong><DataTag type={mockMode ? 'SIMULATED' : 'REAL'} /></div>
-          </div>
+      <div className="config-summary-grid">
+        <div className="config-card">
+          <span>MISSION</span>
+          <strong>CAN-7USAT</strong>
+          <DataTag type="REAL" />
         </div>
 
-        <div className="aero-panel">
-          <div className="aero-panel-head">
-            <span>INTERFACE ENDPOINTS</span>
-            <em>LOCAL RUNTIME</em>
-          </div>
-          <div className="aero-table">
+        <div className="config-card">
+          <span>FRONTEND STACK</span>
+          <strong>React + Vite</strong>
+          <DataTag type="REAL" />
+        </div>
+
+        <div className="config-card">
+          <span>BACKEND STACK</span>
+          <strong>FastAPI + WebSocket</strong>
+          <DataTag type="REAL" />
+        </div>
+
+        <div className="config-card">
+          <span>DATA RATE</span>
+          <strong>{dataRateHz || 10} <em>Hz</em></strong>
+          <DataTag type={activeModeTag} />
+        </div>
+      </div>
+
+      <div className="config-grid">
+        <section className="config-panel">
+          <header>
+            <div>
+              <span>RUNTIME ENDPOINTS</span>
+              <h3>Interface Map</h3>
+            </div>
+            <DataTag type="REAL" />
+          </header>
+
+          <div className="config-table">
             <div><span>API_URL</span><strong>{API_URL}</strong><DataTag type="REAL" /></div>
             <div><span>WS_URL</span><strong>{WS_URL}</strong><DataTag type="REAL" /></div>
             <div><span>STATUS_ENDPOINT</span><strong>/api/status</strong><DataTag type="REAL" /></div>
             <div><span>HISTORY_ENDPOINT</span><strong>/api/telemetry/history</strong><DataTag type="REAL" /></div>
             <div><span>COMMAND_ENDPOINT</span><strong>/api/command</strong><DataTag type="REAL" /></div>
+            <div><span>MOCK_RESET_ENDPOINT</span><strong>/api/mock/reset?profile=demo</strong><DataTag type="SIMULATED" /></div>
             <div><span>WEBSOCKET_CLIENTS</span><strong>{systemStatus?.websocket_clients ?? 0}</strong><DataTag type="REAL" /></div>
+            <div><span>BACKEND_UPTIME</span><strong>{formatDuration(systemStatus?.uptime_seconds ?? 0)}</strong><DataTag type="REAL" /></div>
           </div>
-        </div>
+        </section>
+
+        <section className="config-panel">
+          <header>
+            <div>
+              <span>MOCK PROFILE</span>
+              <h3>Demo Runtime</h3>
+            </div>
+            <DataTag type="SIMULATED" />
+          </header>
+
+          <div className="config-table">
+            <div><span>ACTIVE_PROFILE</span><strong>{activeProfile}</strong><DataTag type={profileTag} /></div>
+            <div><span>RESET_BEHAVIOR</span><strong>Restart mission from T+0</strong><DataTag type="SIMULATED" /></div>
+            <div><span>DEMO_SEQUENCE</span><strong>PRE_FLIGHT → BOOST → COAST → APOGEE → DESCENT → LANDED</strong><DataTag type="SIMULATED" /></div>
+            <div><span>COMMAND_SAFETY</span><strong>confirmation gated</strong><DataTag type="DERIVED" /></div>
+            <div><span>MISSION_CLOCK</span><strong>timestamp_ms / 1000</strong><DataTag type="REAL" /></div>
+          </div>
+        </section>
       </div>
 
-      <div className="aero-panel">
-        <div className="aero-panel-head">
-          <span>FLIGHT STATE MODEL</span>
-          <em>BACKEND STATE NAMES</em>
+      <section className="config-panel">
+        <header>
+          <div>
+            <span>DATA SOURCE TRUTH TABLE</span>
+            <h3>Real / Derived / Simulated Signals</h3>
+          </div>
+          <DataTag type="DERIVED" />
+        </header>
+
+        <div className="truth-table">
+          <div className="truth-row truth-head">
+            <span>SIGNAL</span>
+            <span>SOURCE</span>
+            <span>DESCRIPTION</span>
+            <span>TAG</span>
+          </div>
+
+          <div className="truth-row">
+            <span>altitude_m</span>
+            <strong>Backend packet</strong>
+            <p>Primary altitude field received from telemetry stream.</p>
+            <DataTag type="REAL" />
+          </div>
+
+          <div className="truth-row">
+            <span>velocity_ms</span>
+            <strong>Backend packet</strong>
+            <p>Vertical velocity field received from telemetry stream.</p>
+            <DataTag type="REAL" />
+          </div>
+
+          <div className="truth-row">
+            <span>quat_w / quat_x / quat_y / quat_z</span>
+            <strong>Backend packet</strong>
+            <p>Quaternion attitude values used for attitude visualizer and Euler conversion.</p>
+            <DataTag type="REAL" />
+          </div>
+
+          <div className="truth-row">
+            <span>roll / pitch / yaw</span>
+            <strong>Frontend calculation</strong>
+            <p>Euler angles derived from quaternion packet values.</p>
+            <DataTag type="DERIVED" />
+          </div>
+
+          <div className="truth-row">
+            <span>derived_acceleration</span>
+            <strong>Frontend calculation</strong>
+            <p>Filtered derivative of vertical velocity over a short time window.</p>
+            <DataTag type="DERIVED" />
+          </div>
+
+          <div className="truth-row">
+            <span>packet_rate / packet_loss</span>
+            <strong>Frontend + backend status</strong>
+            <p>Operational health indicators derived from packet timing and decoder status.</p>
+            <DataTag type="DERIVED" />
+          </div>
+
+          <div className="truth-row">
+            <span>gps_lat / gps_lon</span>
+            <strong>Backend packet</strong>
+            <p>Position fields carried by telemetry packets.</p>
+            <DataTag type="REAL" />
+          </div>
+
+          <div className="truth-row">
+            <span>mock flight profile</span>
+            <strong>Backend simulation</strong>
+            <p>Demo profile used for repeatable UI testing and mission demonstration.</p>
+            <DataTag type="SIMULATED" />
+          </div>
         </div>
-        <div className="aero-state-strip">
-          {['PRE_FLIGHT', 'BOOST', 'COAST', 'APOGEE', 'DESCENT', 'LANDED'].map((state) => (
-            <div key={state}>{state.replaceAll('_', '-')}</div>
+      </section>
+
+      <section className="config-panel">
+        <header>
+          <div>
+            <span>FLIGHT STATE MODEL</span>
+            <h3>Backend State Names</h3>
+          </div>
+          <DataTag type="REAL" />
+        </header>
+
+        <div className="config-state-strip">
+          {['PRE_FLIGHT', 'BOOST', 'COAST', 'APOGEE', 'DESCENT', 'LANDED'].map((state, index, states) => (
+            <div key={state}>
+              <strong>{state.replaceAll('_', '-')}</strong>
+              {index < states.length - 1 ? <span>→</span> : null}
+            </div>
           ))}
         </div>
-      </div>
+      </section>
     </section>
   );
 };
@@ -758,6 +893,8 @@ export const AppShell = () => {
     </div>
   );
 };
+
+
 
 
 
