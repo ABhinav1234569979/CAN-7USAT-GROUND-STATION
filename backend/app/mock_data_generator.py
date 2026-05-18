@@ -156,8 +156,16 @@ class MockDataGenerator:
             duration = self.BURNOUT_TIME - self.LIFTOFF_TIME
             p = _clamp((t - self.LIFTOFF_TIME) / duration, 0.0, 1.0)
 
-            # Smooth boost. Strong upward curve, no instant jump.
-            return self.BURNOUT_ALTITUDE * _smoothstep(p)
+            # Cubic boost curve with continuous velocity at burnout.
+            # h(0)=0, h'(0)=0, h(1)=BURNOUT_ALTITUDE, h'(1)=initial coast velocity.
+            coast_initial_velocity = 2.0 * (self.MAX_ALTITUDE - self.BURNOUT_ALTITUDE) / (
+                self.APOGEE_TIME - self.BURNOUT_TIME
+            )
+
+            a = 3.0 * self.BURNOUT_ALTITUDE - coast_initial_velocity * duration
+            b = coast_initial_velocity * duration - 2.0 * self.BURNOUT_ALTITUDE
+
+            return max(0.0, a * p * p + b * p * p * p)
 
         if t < self.APOGEE_TIME:
             coast_time = t - self.BURNOUT_TIME
@@ -306,3 +314,4 @@ class MockDataGenerator:
     def stop(self):
         self.running = False
         logger.info("Mock data generator stopped")
+

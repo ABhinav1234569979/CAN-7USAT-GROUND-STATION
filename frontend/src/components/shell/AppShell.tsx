@@ -80,6 +80,22 @@ const Readout = ({
   </div>
 );
 
+
+const getRobustPeakAbs = (series: FlightChartPoint[]) => {
+  if (series.length === 0) return 0;
+
+  const values = series
+    .map((point) => Math.abs(point.value))
+    .filter((value) => Number.isFinite(value))
+    .sort((a, b) => a - b);
+
+  if (values.length === 0) return 0;
+
+  // Ignore the top 2% single-frame derivative spikes.
+  const index = Math.max(0, Math.min(values.length - 1, Math.floor(values.length * 0.98)));
+  return values[index];
+};
+
 const EngineeringTelemetry = () => {
   const {
     latestPacket,
@@ -94,6 +110,8 @@ const EngineeringTelemetry = () => {
   } = useTelemetryStore();
 
   const latestAcceleration = accelerationHistory.at(-1)?.value ?? 0;
+  const accelerationStats = getSeriesStats(accelerationHistory);
+  const robustPeakAcceleration = getRobustPeakAbs(accelerationHistory);
 
   const euler = latestPacket
     ? quaternionToEuler(latestPacket.quat_w, latestPacket.quat_x, latestPacket.quat_y, latestPacket.quat_z)
@@ -103,35 +121,80 @@ const EngineeringTelemetry = () => {
     ? `0x${latestPacket.checksum_xor.toString(16).toUpperCase().padStart(2, '0')}`
     : 'N/A';
 
+  const packetTimestampSeconds = (latestPacket?.timestamp_ms ?? 0) / 1000;
+
   return (
-    <section className="aero-page">
-      <div className="aero-page-title">
+    <section className="aero-page engineering-page">
+      <div className="aero-page-title engineering-title">
         <div>
           <span>TELEMETRY MATRIX // CAN-7USAT</span>
           <h2>Engineering Telemetry</h2>
         </div>
-        <div className="aero-page-stamp">T+ {formatDuration((latestPacket?.timestamp_ms ?? 0) / 1000)}</div>
+        <div className="engineering-timebox">
+          <span>MISSION TIME</span>
+          <strong>T+ {formatDuration(packetTimestampSeconds)}</strong>
+        </div>
       </div>
 
-      <div className="aero-matrix-grid">
+      <div className="aero-matrix-grid engineering-matrix-grid">
         <Readout label="Altitude" value={formatNum(latestPacket?.altitude_m ?? 0, 2)} unit="m" />
-        <Readout label="Velocity" value={formatNum(latestPacket?.velocity_ms ?? 0, 2)} unit="m/s" />
-        <Readout label="Acceleration" value={formatNum(latestAcceleration, 2)} unit="m/s2" type="DERIVED" />
+        <Readout label="Vertical Velocity" value={formatNum(latestPacket?.velocity_ms ?? 0, 2)} unit="m/s" />
+        <Readout label="Derived Acceleration" value={formatNum(latestAcceleration, 2)} unit="m/s2" type="DERIVED" />
+        <Readout label="Flight State" value={latestPacket?.flight_state_name ?? 'N/A'} />
         <Readout label="Max Altitude" value={formatNum(maxAltitude, 2)} unit="m" type="DERIVED" />
-        <Readout label="Max Velocity" value={formatNum(maxVelocity, 2)} unit="m/s" type="DERIVED" />
-        <Readout label="Packet Rate" value={packetRateHz} unit="Hz" type="DERIVED" />
-        <Readout label="Packet Loss" value={formatNum(packetLossPercent, 2)} unit="%" type="DERIVED" />
+        <Readout label="Max Vertical Velocity" value={formatNum(maxVelocity, 2)} unit="m/s" type="DERIVED" />
+        <Readout label="Peak Abs Accel" value={formatNum(robustPeakAcceleration, 2)} unit="m/s2" type="DERIVED" />
         <Readout label="Checksum" value={checksum} />
       </div>
 
-      <div className="aero-telemetry-layout">
-        <div className="aero-panel span-2">
+      <div className="aero-telemetry-layout engineering-layout">
+        <div className="aero-panel span-2 engineering-channel-panel">
           <div className="aero-panel-head">
-            <span>ALTITUDE PROFILE</span>
-            <em>REAL PACKET FIELD: altitude_m</em>
+            <span>PRIMARY FLIGHT CHANNELS</span>
+            <em>REAL PACKETS / DERIVED SIGNALS</em>
           </div>
-          <div className="aero-chart-slot">
-            <TelemetryChart data={altitudeHistory} unit="m" />
+
+          <div className="engineering-channel-table">
+            <div>
+              <span>timestamp_ms</span>
+              <strong>{latestPacket?.timestamp_ms ?? 0}</strong>
+              <DataTag type="REAL" />
+            </div>
+            <div>
+              <span>flight_state</span>
+              <strong>{latestPacket?.flight_state_name ?? 'N/A'}</strong>
+              <DataTag type="REAL" />
+            </div>
+            <div>
+              <span>altitude_m</span>
+              <strong>{formatNum(latestPacket?.altitude_m ?? 0, 2)} m</strong>
+              <DataTag type="REAL" />
+            </div>
+            <div>
+              <span>velocity_ms</span>
+              <strong>{formatNum(latestPacket?.velocity_ms ?? 0, 2)} m/s</strong>
+              <DataTag type="REAL" />
+            </div>
+            <div>
+              <span>derived_accel_ms2</span>
+              <strong>{formatNum(latestAcceleration, 2)} m/s2</strong>
+              <DataTag type="DERIVED" />
+            </div>
+            <div>
+              <span>accel_peak_abs_robust</span>
+              <strong>{formatNum(robustPeakAcceleration, 2)} m/s2</strong>
+              <DataTag type="DERIVED" />
+            </div>
+            <div>
+              <span>accel_avg</span>
+              <strong>{formatNum(accelerationStats.average, 2)} m/s2</strong>
+              <DataTag type="DERIVED" />
+            </div>
+            <div>
+              <span>checksum_xor</span>
+              <strong>{checksum}</strong>
+              <DataTag type="REAL" />
+            </div>
           </div>
         </div>
 
@@ -140,7 +203,7 @@ const EngineeringTelemetry = () => {
             <span>ATTITUDE MATRIX</span>
             <em>REAL QUATERNION / DERIVED EULER</em>
           </div>
-          <div className="aero-table">
+          <div className="aero-table attitude-table">
             <div><span>QUAT_W</span><strong>{formatNum(latestPacket?.quat_w ?? 1, 5)}</strong><DataTag type="REAL" /></div>
             <div><span>QUAT_X</span><strong>{formatNum(latestPacket?.quat_x ?? 0, 5)}</strong><DataTag type="REAL" /></div>
             <div><span>QUAT_Y</span><strong>{formatNum(latestPacket?.quat_y ?? 0, 5)}</strong><DataTag type="REAL" /></div>
@@ -156,9 +219,11 @@ const EngineeringTelemetry = () => {
             <span>LINK / PACKET INTEGRITY</span>
             <em>BACKEND STATUS</em>
           </div>
-          <div className="aero-table">
+          <div className="aero-table integrity-table">
             <div><span>PACKETS_RECEIVED</span><strong>{systemStatus?.packets_received ?? 0}</strong><DataTag type="REAL" /></div>
             <div><span>PACKETS_DROPPED</span><strong>{systemStatus?.packets_dropped ?? 0}</strong><DataTag type="REAL" /></div>
+            <div><span>PACKET_RATE</span><strong>{packetRateHz} Hz</strong><DataTag type="DERIVED" /></div>
+            <div><span>PACKET_LOSS</span><strong>{formatNum(packetLossPercent, 2)} %</strong><DataTag type="DERIVED" /></div>
             <div><span>WEBSOCKET_CLIENTS</span><strong>{systemStatus?.websocket_clients ?? 0}</strong><DataTag type="REAL" /></div>
             <div><span>BACKEND_UPTIME</span><strong>{formatDuration(systemStatus?.uptime_seconds ?? 0)}</strong><DataTag type="REAL" /></div>
             <div><span>LAST_PACKET_TIME</span><strong>{systemStatus?.last_packet_time ?? 'N/A'}</strong><DataTag type="REAL" /></div>
@@ -167,20 +232,41 @@ const EngineeringTelemetry = () => {
 
         <div className="aero-panel">
           <div className="aero-panel-head">
-            <span>VELOCITY PROFILE</span>
+            <span>GPS / POSITION</span>
+            <em>REAL PACKET FIELDS</em>
+          </div>
+          <div className="aero-table gps-engineering-table">
+            <div><span>GPS_LAT</span><strong>{formatNum(latestPacket?.gps_lat ?? 0, 6)}</strong><DataTag type="REAL" /></div>
+            <div><span>GPS_LON</span><strong>{formatNum(latestPacket?.gps_lon ?? 0, 6)}</strong><DataTag type="REAL" /></div>
+            <div><span>FIX_STATUS</span><strong>VALID</strong><DataTag type="SIMULATED" /></div>
+            <div><span>DRIFT_MODEL</span><strong>WIND EASTWARD</strong><DataTag type="SIMULATED" /></div>
+          </div>
+        </div>
+
+        <div className="aero-panel span-2 engineering-chart-panel">
+          <div className="aero-panel-head">
+            <span>ALTITUDE PROFILE</span>
+            <em>REAL PACKET FIELD: altitude_m</em>
+          </div>
+          <OperatorChart data={altitudeHistory} label="Engineering Altitude Profile" unit="m" />
+        </div>
+
+        <div className="aero-panel span-2 engineering-chart-panel">
+          <div className="aero-panel-head">
+            <span>VERTICAL VELOCITY PROFILE</span>
             <em>REAL PACKET FIELD: velocity_ms</em>
           </div>
-          <div className="aero-chart-slot small">
+          <div className="aero-chart-slot engineering-small-chart">
             <TelemetryChart data={velocityHistory} unit="m/s" />
           </div>
         </div>
 
-        <div className="aero-panel">
+        <div className="aero-panel span-2 engineering-chart-panel">
           <div className="aero-panel-head">
-            <span>ACCELERATION PROFILE</span>
-            <em>DERIVED: Δv / Δt</em>
+            <span>DERIVED ACCELERATION PROFILE</span>
+            <em>DERIVED FILTERED: Δv / Δt</em>
           </div>
-          <div className="aero-chart-slot small">
+          <div className="aero-chart-slot engineering-small-chart">
             <TelemetryChart data={accelerationHistory} unit="m/s2" />
           </div>
         </div>
@@ -602,4 +688,8 @@ export const AppShell = () => {
     </div>
   );
 };
+
+
+
+
 

@@ -2772,3 +2772,126 @@ body {
     grid-template-columns: 1fr;
   }
 }
+
+/* MILESTONE 7.3 ENGINEERING TELEMETRY POLISH */
+
+.engineering-page {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.engineering-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.engineering-timebox {
+  min-width: 190px;
+  padding: 12px 16px;
+  border: 1px solid #3a3a3a;
+  background: #101010;
+}
+
+.engineering-timebox span {
+  display: block;
+  color: #9a9a9a;
+  font-family: "JetBrains Mono", Consolas, monospace;
+  font-size: 0.62rem;
+  font-weight: 900;
+  letter-spacing: 0.14em;
+}
+
+.engineering-timebox strong {
+  display: block;
+  margin-top: 6px;
+  color: #ffffff;
+  font-family: "JetBrains Mono", Consolas, monospace;
+  font-size: 1rem;
+}
+
+.engineering-matrix-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+}
+
+.engineering-layout {
+  grid-template-columns: minmax(0, 1.35fr) minmax(360px, 0.75fr) !important;
+  align-items: start;
+}
+
+.engineering-channel-table {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.engineering-channel-table div {
+  min-height: 54px;
+  display: grid;
+  grid-template-columns: minmax(150px, 1fr) minmax(130px, auto) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border-bottom: 1px solid #252525;
+}
+
+.engineering-channel-table div:nth-child(odd) {
+  border-right: 1px solid #252525;
+}
+
+.engineering-channel-table span,
+.attitude-table span,
+.integrity-table span,
+.gps-engineering-table span {
+  color: #9a9a9a;
+  font-family: "JetBrains Mono", Consolas, monospace;
+  font-size: 0.68rem;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.engineering-channel-table strong,
+.attitude-table strong,
+.integrity-table strong,
+.gps-engineering-table strong {
+  color: #ffffff;
+  font-family: "JetBrains Mono", Consolas, monospace;
+  font-size: 0.84rem;
+  white-space: nowrap;
+}
+
+.engineering-chart-panel .op-chart {
+  border: 0;
+  min-height: 470px;
+}
+
+.engineering-chart-panel .op-chart-stats {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.engineering-small-chart {
+  height: 330px !important;
+}
+
+.engineering-small-chart .numeric-engineering-chart {
+  min-height: 315px !important;
+}
+
+@media (max-width: 1450px) {
+  .engineering-matrix-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  .engineering-layout {
+    grid-template-columns: 1fr !important;
+  }
+
+  .engineering-channel-table {
+    grid-template-columns: 1fr;
+  }
+
+  .engineering-channel-table div:nth-child(odd) {
+    border-right: 0;
+  }
+}
