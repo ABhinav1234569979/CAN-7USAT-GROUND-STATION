@@ -5,6 +5,7 @@ Ultra-low latency telemetry ingestion and WebSocket broadcast
 
 import asyncio
 import logging
+import os
 from contextlib import asynccontextmanager
 from datetime import datetime
 from typing import List
@@ -63,7 +64,23 @@ manager = ConnectionManager()
 decoder = TelemetryDecoder()
 mock_generator = None
 telemetry_task = None
+mock_profile = os.getenv("MOCK_PROFILE", "demo").strip().lower() or "demo"
 
+
+def normalize_mock_profile(profile: str | None) -> str:
+    if not profile:
+        return mock_profile
+
+    normalized = profile.strip().lower()
+    valid_profiles = {"original", "demo"}
+
+    if normalized not in valid_profiles:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid mock profile '{profile}'. Use one of: original, demo"
+        )
+
+    return normalized
 # Statistics
 server_start_time = datetime.utcnow()
 latest_packet: TelemetryPacket | None = None
@@ -107,7 +124,7 @@ async def start_mock_telemetry():
     
     if settings.mock_mode:
         logger.info("Starting mock telemetry generator...")
-        mock_generator = MockDataGenerator(data_rate_hz=settings.mock_data_rate)
+        mock_generator = MockDataGenerator(data_rate_hz=settings.mock_data_rate, profile=mock_profile)
         telemetry_task = asyncio.create_task(
             mock_generator.start(process_telemetry_packet)
         )
@@ -118,16 +135,38 @@ async def start_mock_telemetry():
 
 async def stop_mock_telemetry():
     global mock_generator, telemetry_task
-    
+
     if mock_generator:
         mock_generator.stop()
-    
+
     if telemetry_task:
         telemetry_task.cancel()
         try:
             await telemetry_task
         except asyncio.CancelledError:
             pass
+
+    mock_generator = None
+    telemetry_task = None
+
+
+async def reset_mock_telemetry(profile: str | None = None):
+    global latest_packet, packet_history, server_start_time, decoder, mock_profile
+
+    if not settings.mock_mode:
+        raise HTTPException(status_code=400, detail="Mock mode is disabled")
+
+    mock_profile = normalize_mock_profile(profile)
+
+    await stop_mock_telemetry()
+
+    latest_packet = None
+    packet_history.clear()
+    decoder = TelemetryDecoder()
+    manager.packets_sent = 0
+    server_start_time = datetime.utcnow()
+
+    await start_mock_telemetry()
 
 
 @asynccontextmanager
@@ -209,6 +248,24 @@ async def get_status():
         uptime_seconds=uptime
     )
 
+
+@app.post("/api/mock/reset")
+async def reset_mock_mission(profile: str | None = None):
+    """
+    Restart mock mission telemetry from T+0.
+
+    Optional query:
+        /api/mock/reset?profile=demo
+        /api/mock/reset?profile=original
+    """
+    await reset_mock_telemetry(profile)
+
+    return {
+        "status": "reset",
+        "mode": "mock",
+        "profile": mock_profile,
+        "timestamp": datetime.utcnow().isoformat()
+    }
 
 @app.get("/api/telemetry/latest")
 async def get_latest_telemetry():
@@ -348,4 +405,5 @@ if __name__ == "__main__":
         reload=settings.reload,
         log_level=settings.log_level.lower()
     )
+
 

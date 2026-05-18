@@ -2565,3 +2565,31 @@ body {
     min-height: 590px !important;
   }
 }
+
+/* MILESTONE 6.4 EXPORT BUTTON THEME FIX */
+.aero-page-host .export-button,
+.aero-page-host a.export-button,
+.export-button {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  min-height: 34px !important;
+  padding: 0 14px !important;
+  border: 1px solid #3a3a3a !important;
+  background: #101010 !important;
+  color: #ffffff !important;
+  text-decoration: none !important;
+  font-family: "JetBrains Mono", Consolas, monospace !important;
+  font-size: 0.72rem !important;
+  font-weight: 900 !important;
+  letter-spacing: 0.12em !important;
+  text-transform: uppercase !important;
+}
+
+.aero-page-host .export-button:hover,
+.aero-page-host a.export-button:hover,
+.export-button:hover {
+  background: #ffffff !important;
+  color: #050505 !important;
+  text-decoration: none !important;
+}

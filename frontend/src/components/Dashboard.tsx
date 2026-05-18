@@ -202,7 +202,7 @@ export const Dashboard = () => {
       setConfirmCommand({
         command,
         title: 'RESET SESSION',
-        body: 'This will send a reset command and clear the local armed state.',
+        body: 'This will restart the backend mock mission from T+0, clear local chart history, and return the command panel to SAFE mode.',
         danger: false,
       });
       return;
@@ -535,6 +535,8 @@ export const Dashboard = () => {
 };
 
 export default Dashboard;
+
+
 
 
 

@@ -441,6 +441,38 @@ export const useTelemetryStore = create<TelemetryState>((set, get) => ({
   },
 
   sendCommand: async (command: string, parameters: Record<string, unknown> = {}) => {
+    if (command === 'RESET') {
+      const profile = typeof parameters.profile === 'string' ? parameters.profile : 'demo';
+
+      const response = await fetch(`${getApiBaseUrl()}/api/mock/reset?profile=${encodeURIComponent(profile)}`, {
+        method: 'POST',
+      });
+
+      if (!response.ok) {
+        get().addEvent('Mock mission reset failed', 'danger');
+        throw new Error(`Mock reset failed: ${response.status}`);
+      }
+
+      const result = await response.json();
+
+      set({
+        armed: false,
+        latestPacket: null,
+        altitudeHistory: [],
+        velocityHistory: [],
+        accelerationHistory: [],
+        maxAltitude: 0,
+        maxVelocity: 0,
+        packetsReceived: 0,
+        packetRateHz: 0,
+        packetLossPercent: 0,
+        warnings: [],
+      });
+
+      get().addEvent(`Mock mission reset (${result.profile ?? profile} profile)`, 'info');
+      return;
+    }
+
     const response = await fetch(`${getApiBaseUrl()}/api/command`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -452,11 +484,11 @@ export const useTelemetryStore = create<TelemetryState>((set, get) => ({
       throw new Error(`Command failed: ${response.status}`);
     }
 
-    const result = (await response.json()) as { status?: string };
+    const result = await response.json();
     get().addEvent(`Command ${command} ${result.status ?? 'sent'}`, 'info');
 
     if (command === 'ARM') set({ armed: true });
-    if (command === 'DISARM' || command === 'ABORT' || command === 'RESET') set({ armed: false });
+    if (command === 'DISARM' || command === 'ABORT') set({ armed: false });
   },
 
   addEvent: (message: string, level: MissionEvent['level'] = 'info') => {
@@ -474,3 +506,4 @@ export const useTelemetryStore = create<TelemetryState>((set, get) => ({
 
   clearEvents: () => set({ events: [] }),
 }));
+
