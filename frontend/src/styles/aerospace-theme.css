@@ -2895,3 +2895,251 @@ body {
     border-right: 0;
   }
 }
+
+/* MILESTONE 8.1 SYSTEM LOGS POLISH */
+
+.logs-page {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.logs-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.logs-status-strip {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(90px, 1fr));
+  gap: 8px;
+}
+
+.logs-status-strip div,
+.logs-summary-card {
+  position: relative;
+  padding: 12px 14px;
+  border: 1px solid #2d2d2d;
+  background: #101010;
+}
+
+.logs-status-strip span,
+.logs-summary-card span {
+  display: block;
+  color: #9a9a9a;
+  font-family: "JetBrains Mono", Consolas, monospace;
+  font-size: 0.62rem;
+  font-weight: 900;
+  letter-spacing: 0.14em;
+}
+
+.logs-status-strip strong,
+.logs-summary-card strong {
+  display: block;
+  margin-top: 6px;
+  color: #ffffff;
+  font-family: "JetBrains Mono", Consolas, monospace;
+  font-size: 1rem;
+}
+
+.logs-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.logs-summary-card strong {
+  font-size: 1.35rem;
+}
+
+.logs-summary-card em {
+  color: #bdbdbd;
+  font-size: 0.72rem;
+  font-style: normal;
+}
+
+.logs-summary-card .aero-tag {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+}
+
+.logs-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.45fr) minmax(360px, 0.75fr);
+  gap: 12px;
+  align-items: start;
+}
+
+.logs-panel {
+  border: 1px solid #2a2a2a;
+  background: #101010;
+}
+
+.logs-panel > header {
+  min-height: 58px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border-bottom: 1px solid #2a2a2a;
+}
+
+.logs-panel > header span {
+  color: #8f8f8f;
+  font-family: "JetBrains Mono", Consolas, monospace;
+  font-size: 0.62rem;
+  letter-spacing: 0.16em;
+}
+
+.logs-panel > header h3 {
+  margin: 4px 0 0;
+  color: #ffffff;
+  font-size: 0.95rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.terminal-log-table {
+  max-height: 620px;
+  overflow-y: auto;
+  font-family: "JetBrains Mono", Consolas, monospace;
+}
+
+.terminal-log-header,
+.terminal-log-row {
+  display: grid;
+  grid-template-columns: 110px 74px 86px minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+}
+
+.terminal-log-header {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  min-height: 42px;
+  padding: 0 14px;
+  border-bottom: 1px solid #2a2a2a;
+  background: #151515;
+  color: #9a9a9a;
+  font-size: 0.64rem;
+  font-weight: 900;
+  letter-spacing: 0.14em;
+}
+
+.terminal-log-row {
+  min-height: 46px;
+  padding: 8px 14px;
+  border-bottom: 1px solid #242424;
+  color: #ffffff;
+}
+
+.terminal-log-row span {
+  color: #cfcfcf;
+  font-size: 0.72rem;
+}
+
+.terminal-log-row strong,
+.terminal-log-row em {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 24px;
+  border: 1px solid #3a3a3a;
+  background: #070707;
+  color: #ffffff;
+  font-size: 0.66rem;
+  font-style: normal;
+  letter-spacing: 0.12em;
+}
+
+.terminal-log-row p {
+  margin: 0;
+  color: #ffffff;
+  font-size: 0.78rem;
+  line-height: 1.35;
+}
+
+.terminal-log-row.level-danger em,
+.terminal-log-row.level-warn em {
+  border-color: #8f5f00;
+  color: #ffd166;
+}
+
+.terminal-log-row.level-state em,
+.terminal-log-row.level-action em {
+  border-color: #ffffff;
+  color: #ffffff;
+}
+
+.terminal-log-empty {
+  padding: 20px;
+  color: #9a9a9a;
+  font-family: "JetBrains Mono", Consolas, monospace;
+}
+
+.warning-console {
+  min-height: 220px;
+  padding: 12px;
+}
+
+.warning-empty {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 18px;
+  border: 1px solid #2a2a2a;
+  background: #090909;
+}
+
+.warning-empty strong {
+  color: #ffffff;
+  font-family: "JetBrains Mono", Consolas, monospace;
+  letter-spacing: 0.14em;
+}
+
+.warning-empty span {
+  color: #9a9a9a;
+}
+
+.warning-row {
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr);
+  gap: 12px;
+  min-height: 44px;
+  align-items: center;
+  padding: 10px;
+  border: 1px solid #3a2b10;
+  background: #130f08;
+  color: #ffd166;
+  font-family: "JetBrains Mono", Consolas, monospace;
+}
+
+.warning-row + .warning-row {
+  margin-top: 8px;
+}
+
+.warning-row span {
+  font-size: 0.68rem;
+  font-weight: 900;
+  letter-spacing: 0.14em;
+}
+
+.warning-row p {
+  margin: 0;
+  font-size: 0.76rem;
+}
+
+@media (max-width: 1450px) {
+  .logs-status-strip,
+  .logs-summary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .logs-grid {
+    grid-template-columns: 1fr;
+  }
+}

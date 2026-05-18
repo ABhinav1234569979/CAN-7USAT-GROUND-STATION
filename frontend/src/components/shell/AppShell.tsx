@@ -469,69 +469,139 @@ const FlightAnalysis = () => {
   );
 };
 
+const getLogChannel = (message: string) => {
+  const upper = message.toUpperCase();
+
+  if (upper.includes('COMMAND')) return 'CMD';
+  if (upper.includes('FLIGHT STATE')) return 'STATE';
+  if (upper.includes('WEBSOCKET')) return 'WS';
+  if (upper.includes('RESET')) return 'RESET';
+  if (upper.includes('FAILED') || upper.includes('ERROR')) return 'ERR';
+  if (upper.includes('WARNING') || upper.includes('STALE')) return 'WARN';
+
+  return 'SYS';
+};
+
+const getLogLevel = (message: string) => {
+  const upper = message.toUpperCase();
+
+  if (upper.includes('FAILED') || upper.includes('ERROR')) return 'DANGER';
+  if (upper.includes('WARNING') || upper.includes('STALE')) return 'WARN';
+  if (upper.includes('RESET')) return 'ACTION';
+  if (upper.includes('FLIGHT STATE')) return 'STATE';
+
+  return 'INFO';
+};
+
 const SystemLogs = () => {
-  const { events, warnings } = useTelemetryStore();
+  const { events, warnings, connected, packetRateHz, packetLossPercent } = useTelemetryStore();
+
+  const visibleEvents = events.slice(0, 80);
+  const commandEvents = events.filter((event) => event.message.toUpperCase().includes('COMMAND')).length;
+  const stateEvents = events.filter((event) => event.message.toUpperCase().includes('FLIGHT STATE')).length;
+  const websocketEvents = events.filter((event) => event.message.toUpperCase().includes('WEBSOCKET')).length;
 
   return (
-    <section className="aero-page">
-      <div className="aero-page-title">
+    <section className="aero-page logs-page">
+      <div className="aero-page-title logs-title">
         <div>
-          <span>TERMINAL EVENT STREAM</span>
+          <span>TERMINAL EVENT STREAM // CAN-7USAT</span>
           <h2>System Logs</h2>
         </div>
-        <div className="aero-page-stamp">ROWS {events.length}</div>
-      </div>
-
-      <div className="aero-panel">
-        <div className="aero-panel-head">
-          <span>EVENT LOG</span>
-          <em>COMMANDS / STATE / WEBSOCKET</em>
-        </div>
-        <div className="aero-log-table tall">
-          {events.length === 0 ? (
-            <div className="aero-log-row">
-              <span>--:--:--</span>
-              <strong>SYS</strong>
-              <em>No events yet.</em>
-              <DataTag type="REAL" />
-            </div>
-          ) : (
-            events.map((event) => (
-              <div key={event.id} className={`aero-log-row ${event.level}`}>
-                <span>{new Date(event.timestamp).toLocaleTimeString()}</span>
-                <strong>{event.level === 'danger' ? 'ALERT' : event.level === 'warning' ? 'WARN' : 'SYS'}</strong>
-                <em>{event.message}</em>
-                <DataTag type="REAL" />
-              </div>
-            ))
-          )}
+        <div className="logs-status-strip">
+          <div><span>ROWS</span><strong>{events.length}</strong></div>
+          <div><span>WARN</span><strong>{warnings.length}</strong></div>
+          <div><span>LINK</span><strong>{connected ? 'ONLINE' : 'OFFLINE'}</strong></div>
+          <div><span>RATE</span><strong>{packetRateHz} Hz</strong></div>
         </div>
       </div>
 
-      <div className="aero-panel">
-        <div className="aero-panel-head">
-          <span>ACTIVE WARNINGS</span>
-          <em>DERIVED FROM CONNECTION / PACKET STATUS</em>
+      <div className="logs-summary-grid">
+        <div className="logs-summary-card">
+          <span>COMMAND EVENTS</span>
+          <strong>{commandEvents}</strong>
+          <DataTag type="DERIVED" />
         </div>
-        <div className="aero-log-table">
-          {warnings.length === 0 ? (
-            <div className="aero-log-row">
-              <span>OK</span>
-              <strong>STATUS</strong>
-              <em>No active warnings.</em>
-              <DataTag type="DERIVED" />
+        <div className="logs-summary-card">
+          <span>STATE TRANSITIONS</span>
+          <strong>{stateEvents}</strong>
+          <DataTag type="DERIVED" />
+        </div>
+        <div className="logs-summary-card">
+          <span>WEBSOCKET EVENTS</span>
+          <strong>{websocketEvents}</strong>
+          <DataTag type="REAL" />
+        </div>
+        <div className="logs-summary-card">
+          <span>PACKET LOSS</span>
+          <strong>{formatNum(packetLossPercent, 2)} <em>%</em></strong>
+          <DataTag type="DERIVED" />
+        </div>
+      </div>
+
+      <div className="logs-grid">
+        <section className="logs-panel event-stream-panel">
+          <header>
+            <div>
+              <span>EVENT LOG</span>
+              <h3>Operator Event Stream</h3>
             </div>
-          ) : (
-            warnings.map((warning) => (
-              <div key={warning} className="aero-log-row danger">
-                <span>WARN</span>
-                <strong>ALERT</strong>
-                <em>{warning}</em>
-                <DataTag type="DERIVED" />
+            <DataTag type="REAL" />
+          </header>
+
+          <div className="terminal-log-table">
+            <div className="terminal-log-header">
+              <span>TIME</span>
+              <span>CH</span>
+              <span>LEVEL</span>
+              <span>MESSAGE</span>
+            </div>
+
+            {visibleEvents.length === 0 ? (
+              <div className="terminal-log-empty">No system events recorded yet.</div>
+            ) : (
+              visibleEvents.map((event, index) => {
+                const channel = getLogChannel(event.message);
+                const level = getLogLevel(event.message);
+
+                return (
+                  <div className={`terminal-log-row level-${level.toLowerCase()}`} key={`${event.timestamp}-${index}`}>
+                    <span>{formatEventTime(event.timestamp)}</span>
+                    <strong>{channel}</strong>
+                    <em>{level}</em>
+                    <p>{event.message}</p>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </section>
+
+        <section className="logs-panel warning-stream-panel">
+          <header>
+            <div>
+              <span>ACTIVE WARNINGS</span>
+              <h3>Warning Console</h3>
+            </div>
+            <DataTag type="DERIVED" />
+          </header>
+
+          <div className="warning-console">
+            {warnings.length === 0 ? (
+              <div className="warning-empty">
+                <strong>NOMINAL</strong>
+                <span>No active warnings.</span>
               </div>
-            ))
-          )}
-        </div>
+            ) : (
+              warnings.map((warning, index) => (
+                <div className="warning-row" key={`${warning}-${index}`}>
+                  <span>WARN</span>
+                  <p>{warning}</p>
+                </div>
+              ))
+            )}
+          </div>
+        </section>
       </div>
     </section>
   );
@@ -688,6 +758,7 @@ export const AppShell = () => {
     </div>
   );
 };
+
 
 
 
