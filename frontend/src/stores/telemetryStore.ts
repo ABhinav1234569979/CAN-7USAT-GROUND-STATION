@@ -444,33 +444,42 @@ export const useTelemetryStore = create<TelemetryState>((set, get) => ({
     if (command === 'RESET') {
       const profile = typeof parameters.profile === 'string' ? parameters.profile : 'demo';
 
-      const response = await fetch(`${getApiBaseUrl()}/api/mock/reset?profile=${encodeURIComponent(profile)}`, {
-        method: 'POST',
-      });
+      try {
+        const response = await fetch(`${getApiBaseUrl()}/api/mock/reset?profile=${encodeURIComponent(profile)}`, {
+          method: 'POST',
+        });
 
-      if (!response.ok) {
+        if (!response.ok) {
+          throw new Error(`Mock reset failed: ${response.status}`);
+        }
+
+        let result: { profile?: string } = {};
+        try {
+          result = await response.json();
+        } catch {
+          result = { profile };
+        }
+
+        set({
+          armed: false,
+          latestPacket: null,
+          altitudeHistory: [],
+          velocityHistory: [],
+          accelerationHistory: [],
+          maxAltitude: 0,
+          maxVelocity: 0,
+          packetsReceived: 0,
+          packetRateHz: 0,
+          packetLossPercent: 0,
+          warnings: [],
+        });
+
+        get().addEvent(`Mock mission reset (${result.profile ?? profile} profile)`, 'info');
+        return;
+      } catch (error) {
         get().addEvent('Mock mission reset failed', 'danger');
-        throw new Error(`Mock reset failed: ${response.status}`);
+        throw error;
       }
-
-      const result = await response.json();
-
-      set({
-        armed: false,
-        latestPacket: null,
-        altitudeHistory: [],
-        velocityHistory: [],
-        accelerationHistory: [],
-        maxAltitude: 0,
-        maxVelocity: 0,
-        packetsReceived: 0,
-        packetRateHz: 0,
-        packetLossPercent: 0,
-        warnings: [],
-      });
-
-      get().addEvent(`Mock mission reset (${result.profile ?? profile} profile)`, 'info');
-      return;
     }
 
     const response = await fetch(`${getApiBaseUrl()}/api/command`, {
@@ -506,4 +515,5 @@ export const useTelemetryStore = create<TelemetryState>((set, get) => ({
 
   clearEvents: () => set({ events: [] }),
 }));
+
 
