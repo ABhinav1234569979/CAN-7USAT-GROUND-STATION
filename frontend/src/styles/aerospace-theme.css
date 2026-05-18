@@ -2593,3 +2593,182 @@ body {
   color: #050505 !important;
   text-decoration: none !important;
 }
+
+/* MILESTONE 7.1 FLIGHT ANALYSIS POLISH */
+
+.analysis-page {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.analysis-hero {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.analysis-hero-status {
+  min-width: 190px;
+  padding: 12px 16px;
+  border: 1px solid #3a3a3a;
+  background: #101010;
+}
+
+.analysis-hero-status span {
+  display: block;
+  color: #9a9a9a;
+  font-family: "JetBrains Mono", Consolas, monospace;
+  font-size: 0.64rem;
+  font-weight: 900;
+  letter-spacing: 0.14em;
+}
+
+.analysis-hero-status strong {
+  display: block;
+  margin-top: 6px;
+  color: #fff;
+  font-family: "JetBrains Mono", Consolas, monospace;
+  font-size: 1rem;
+}
+
+.analysis-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.analysis-metric-card {
+  position: relative;
+  min-height: 96px;
+  padding: 14px;
+  border: 1px solid #2a2a2a;
+  background: #101010;
+}
+
+.analysis-metric-card span {
+  display: block;
+  max-width: 70%;
+  color: #9a9a9a;
+  font-family: "JetBrains Mono", Consolas, monospace;
+  font-size: 0.7rem;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.analysis-metric-card strong {
+  display: block;
+  margin-top: 18px;
+  color: #ffffff;
+  font-family: "JetBrains Mono", Consolas, monospace;
+  font-size: 1.35rem;
+  line-height: 1;
+}
+
+.analysis-metric-card em {
+  color: #bdbdbd;
+  font-size: 0.72rem;
+  font-style: normal;
+}
+
+.analysis-metric-card .aero-tag {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+}
+
+.analysis-main-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.45fr) minmax(360px, 0.75fr);
+  gap: 12px;
+  align-items: start;
+}
+
+.analysis-panel {
+  border: 1px solid #2a2a2a;
+  background: #101010;
+}
+
+.analysis-panel > header {
+  min-height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border-bottom: 1px solid #2a2a2a;
+}
+
+.analysis-panel > header span {
+  color: #8f8f8f;
+  font-family: "JetBrains Mono", Consolas, monospace;
+  font-size: 0.62rem;
+  letter-spacing: 0.16em;
+}
+
+.analysis-panel > header h3 {
+  margin: 4px 0 0;
+  color: #fff;
+  font-size: 0.95rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.analysis-chart-panel .op-chart {
+  border: 0;
+  min-height: 540px;
+}
+
+.analysis-transition-table {
+  padding: 10px;
+}
+
+.analysis-transition-row,
+.analysis-empty-row {
+  min-height: 46px;
+  display: grid;
+  grid-template-columns: 100px 80px minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  padding: 10px 8px;
+  border-bottom: 1px solid #252525;
+  color: #ffffff;
+  font-family: "JetBrains Mono", Consolas, monospace;
+}
+
+.analysis-transition-row:last-child {
+  border-bottom: 0;
+}
+
+.analysis-transition-row span {
+  color: #bdbdbd;
+  font-size: 0.72rem;
+}
+
+.analysis-transition-row strong {
+  color: #ffffff;
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+}
+
+.analysis-transition-row p {
+  margin: 0;
+  color: #ffffff;
+  font-size: 0.76rem;
+}
+
+.analysis-empty-row {
+  grid-template-columns: 1fr;
+  color: #9a9a9a;
+}
+
+@media (max-width: 1450px) {
+  .analysis-summary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .analysis-main-grid {
+    grid-template-columns: 1fr;
+  }
+}
