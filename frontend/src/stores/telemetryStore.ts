@@ -81,6 +81,8 @@ interface TelemetryState {
 }
 
 const MAX_HISTORY_POINTS = 20000;
+const ACCELERATION_WINDOW_SECONDS = 0.75;
+const MIN_ACCELERATION_DT_SECONDS = 0.25;
 const MAX_EVENTS = 100;
 
 const getApiBaseUrl = () => import.meta.env.VITE_API_URL ?? 'http://localhost:8000';
@@ -113,6 +115,36 @@ const appendUniquePoint = (
   return [...history, point].slice(-MAX_HISTORY_POINTS);
 };
 
+const buildFilteredAccelerationHistory = (
+  velocityHistory: Array<{ time: number; value: number }>,
+) => {
+  const accelerationHistory: Array<{ time: number; value: number }> = [];
+
+  for (let i = 1; i < velocityHistory.length; i += 1) {
+    const current = velocityHistory[i];
+    const targetTime = current.time - ACCELERATION_WINDOW_SECONDS;
+
+    let previous = velocityHistory[Math.max(0, i - 1)];
+
+    for (let j = i - 1; j >= 0; j -= 1) {
+      if (velocityHistory[j].time <= targetTime) {
+        previous = velocityHistory[j];
+        break;
+      }
+    }
+
+    const dt = current.time - previous.time;
+
+    if (dt >= MIN_ACCELERATION_DT_SECONDS && dt < 5) {
+      accelerationHistory.push({
+        time: current.time,
+        value: (current.value - previous.value) / dt,
+      });
+    }
+  }
+
+  return accelerationHistory.slice(-MAX_HISTORY_POINTS);
+};
 const buildHistoriesFromPackets = (packets: TelemetryPacket[]) => {
   const sortedPackets = packets
     .filter(isValidPacket)
@@ -129,20 +161,7 @@ const buildHistoriesFromPackets = (packets: TelemetryPacket[]) => {
     value: packet.velocity_ms,
   }));
 
-  const accelerationHistory: Array<{ time: number; value: number }> = [];
-
-  for (let i = 1; i < sortedPackets.length; i += 1) {
-    const previous = sortedPackets[i - 1];
-    const current = sortedPackets[i];
-    const dt = (current.timestamp_ms - previous.timestamp_ms) / 1000;
-
-    if (dt > 0 && dt < 5) {
-      accelerationHistory.push({
-        time: packetTimeSeconds(current),
-        value: (current.velocity_ms - previous.velocity_ms) / dt,
-      });
-    }
-  }
+  const accelerationHistory = buildFilteredAccelerationHistory(velocityHistory);
 
   const maxAltitude = sortedPackets.reduce((max, packet) => Math.max(max, packet.altitude_m), 0);
   const maxVelocity = sortedPackets.reduce((max, packet) => Math.max(max, Math.abs(packet.velocity_ms)), 0);
@@ -296,7 +315,6 @@ export const useTelemetryStore = create<TelemetryState>((set, get) => ({
 
     const baseAltitudeHistory = missionClockReset ? [] : state.altitudeHistory;
     const baseVelocityHistory = missionClockReset ? [] : state.velocityHistory;
-    const baseAccelerationHistory = missionClockReset ? [] : state.accelerationHistory;
 
     const newAltitudeHistory = appendUniquePoint(baseAltitudeHistory, {
       time,
@@ -308,18 +326,7 @@ export const useTelemetryStore = create<TelemetryState>((set, get) => ({
       value: packet.velocity_ms,
     });
 
-    const previousVelocity = baseVelocityHistory.at(-1);
-    let newAccelerationHistory = baseAccelerationHistory;
-
-    if (previousVelocity && time > previousVelocity.time) {
-      const dt = time - previousVelocity.time;
-      const acceleration = (packet.velocity_ms - previousVelocity.value) / dt;
-
-      newAccelerationHistory = appendUniquePoint(baseAccelerationHistory, {
-        time,
-        value: acceleration,
-      });
-    }
+    const newAccelerationHistory = buildFilteredAccelerationHistory(newVelocityHistory);
 
     const newPacketTimestamps = [...state.packetTimestamps, now].filter((timestamp) => now - timestamp <= 1000);
 
@@ -441,6 +448,47 @@ export const useTelemetryStore = create<TelemetryState>((set, get) => ({
   },
 
   sendCommand: async (command: string, parameters: Record<string, unknown> = {}) => {
+    if (command === 'RESET') {
+      const profile = typeof parameters.profile === 'string' ? parameters.profile : 'demo';
+
+      try {
+        const response = await fetch(`${getApiBaseUrl()}/api/mock/reset?profile=${encodeURIComponent(profile)}`, {
+          method: 'POST',
+        });
+
+        if (!response.ok) {
+          throw new Error(`Mock reset failed: ${response.status}`);
+        }
+
+        let result: { profile?: string } = {};
+        try {
+          result = await response.json();
+        } catch {
+          result = { profile };
+        }
+
+        set({
+          armed: false,
+          latestPacket: null,
+          altitudeHistory: [],
+          velocityHistory: [],
+          accelerationHistory: [],
+          maxAltitude: 0,
+          maxVelocity: 0,
+          packetsReceived: 0,
+          packetRateHz: 0,
+          packetLossPercent: 0,
+          warnings: [],
+        });
+
+        get().addEvent(`Mock mission reset (${result.profile ?? profile} profile)`, 'info');
+        return;
+      } catch (error) {
+        get().addEvent('Mock mission reset failed', 'danger');
+        throw error;
+      }
+    }
+
     const response = await fetch(`${getApiBaseUrl()}/api/command`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -452,11 +500,11 @@ export const useTelemetryStore = create<TelemetryState>((set, get) => ({
       throw new Error(`Command failed: ${response.status}`);
     }
 
-    const result = (await response.json()) as { status?: string };
+    const result = await response.json();
     get().addEvent(`Command ${command} ${result.status ?? 'sent'}`, 'info');
 
     if (command === 'ARM') set({ armed: true });
-    if (command === 'DISARM' || command === 'ABORT' || command === 'RESET') set({ armed: false });
+    if (command === 'DISARM' || command === 'ABORT') set({ armed: false });
   },
 
   addEvent: (message: string, level: MissionEvent['level'] = 'info') => {
@@ -474,3 +522,7 @@ export const useTelemetryStore = create<TelemetryState>((set, get) => ({
 
   clearEvents: () => set({ events: [] }),
 }));
+
+
+
+

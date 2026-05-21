@@ -1,71 +1,98 @@
-﻿import { useEffect } from 'react';
-import { useTelemetryStore, type TelemetryPacket } from '../stores/telemetryStore';
-import { TelemetryChart } from './TelemetryChart';
+﻿import { useEffect, useMemo, useState } from 'react';
+import './Dashboard.css';
+import { useTelemetryStore } from '../stores/telemetryStore';
+import { OperatorChart } from './OperatorChart';
 import { Rocket3D } from './Rocket3D';
 import { GPSMap } from './GPSMap';
-import './Dashboard.css';
 
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8000';
 const WS_URL = import.meta.env.VITE_WS_URL ?? 'ws://localhost:8000/ws/telemetry';
 
 const FLIGHT_STATES = ['PRE_FLIGHT', 'BOOST', 'COAST', 'APOGEE', 'DESCENT', 'LANDED'];
 
-const formatStateLabel = (state: string) => state.replace('_', '-');
+const stateLabel = (state?: string | null) => {
+  if (!state) return 'NO DATA';
+  return state.replaceAll('_', '-');
+};
 
-const formatHms = (totalSeconds: number) => {
-  const safeSeconds = Math.max(0, Math.floor(totalSeconds));
+const formatDuration = (seconds: number) => {
+  const safeSeconds = Math.max(0, Math.floor(seconds));
   const h = Math.floor(safeSeconds / 3600);
   const m = Math.floor((safeSeconds % 3600) / 60);
   const s = safeSeconds % 60;
-  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+
+  return [h, m, s].map((part) => String(part).padStart(2, '0')).join(':');
 };
 
-const formatFlightTime = (timestampMs?: number) => formatHms((timestampMs ?? 0) / 1000);
-
-const isGpsValid = (packet: TelemetryPacket | null) => {
-  if (!packet) return false;
-  const latValid = Number.isFinite(packet.gps_lat) && packet.gps_lat >= -90 && packet.gps_lat <= 90;
-  const lonValid = Number.isFinite(packet.gps_lon) && packet.gps_lon >= -180 && packet.gps_lon <= 180;
-  const notZero = Math.abs(packet.gps_lat) > 0.000001 || Math.abs(packet.gps_lon) > 0.000001;
-  return latValid && lonValid && notZero;
-};
-
-const quaternionToEuler = (packet: TelemetryPacket | null) => {
-  if (!packet) return { roll: 0, pitch: 0, yaw: 0 };
-
-  const { quat_w: w, quat_x: x, quat_y: y, quat_z: z } = packet;
-  const radToDeg = 180 / Math.PI;
-
+const quaternionToEuler = (w: number, x: number, y: number, z: number) => {
   const sinrCosp = 2 * (w * x + y * z);
   const cosrCosp = 1 - 2 * (x * x + y * y);
-  const roll = Math.atan2(sinrCosp, cosrCosp) * radToDeg;
+  const roll = Math.atan2(sinrCosp, cosrCosp);
 
   const sinp = 2 * (w * y - z * x);
-  const pitch = Math.abs(sinp) >= 1 ? Math.sign(sinp) * 90 : Math.asin(sinp) * radToDeg;
+  const pitch = Math.abs(sinp) >= 1 ? Math.sign(sinp) * Math.PI / 2 : Math.asin(sinp);
 
   const sinyCosp = 2 * (w * z + x * y);
   const cosyCosp = 1 - 2 * (y * y + z * z);
-  const yaw = Math.atan2(sinyCosp, cosyCosp) * radToDeg;
+  const yaw = Math.atan2(sinyCosp, cosyCosp);
 
-  return { roll, pitch, yaw };
+  return {
+    roll: roll * 180 / Math.PI,
+    pitch: pitch * 180 / Math.PI,
+    yaw: yaw * 180 / Math.PI,
+  };
 };
+
+const isGpsValid = (lat?: number, lon?: number) =>
+  Number.isFinite(lat) &&
+  Number.isFinite(lon) &&
+  Math.abs(lat ?? 0) > 0.000001 &&
+  Math.abs(lon ?? 0) > 0.000001;
+
+type ConfirmCommand = {
+  command: string;
+  title: string;
+  body: string;
+  danger?: boolean;
+} | null;
+
+type CommandButtonProps = {
+  label: string;
+  onClick: () => void;
+  disabled?: boolean;
+  danger?: boolean;
+  warning?: boolean;
+  active?: boolean;
+};
+
+const CommandButton = ({ label, onClick, disabled, danger, warning, active }: CommandButtonProps) => (
+  <button
+    className={[
+      'command-button',
+      danger ? 'danger' : '',
+      warning ? 'warning' : '',
+      active ? 'active' : '',
+    ].join(' ')}
+    disabled={disabled}
+    onClick={onClick}
+  >
+    {label}
+  </button>
+);
 
 export const Dashboard = () => {
   const {
     connected,
-    connecting,
+    mockMode,
     latestPacket,
     systemStatus,
     altitudeHistory,
     velocityHistory,
     accelerationHistory,
-    packetsReceived,
-    maxAltitude,
-    maxVelocity,
     packetRateHz,
     packetLossPercent,
-    mockMode,
-    dataRateHz,
+    maxAltitude,
+    maxVelocity,
     armed,
     events,
     warnings,
@@ -77,6 +104,9 @@ export const Dashboard = () => {
     addEvent,
     clearEvents,
   } = useTelemetryStore();
+
+  const [confirmCommand, setConfirmCommand] = useState<ConfirmCommand>(null);
+  const [commandBusy, setCommandBusy] = useState<string | null>(null);
 
   useEffect(() => {
     loadHistory();
@@ -93,52 +123,92 @@ export const Dashboard = () => {
     };
   }, [connect, disconnect, fetchStatus, loadHistory]);
 
-  const currentState = latestPacket?.flight_state_name ?? 'NO_DATA';
-  const currentStateIndex = FLIGHT_STATES.indexOf(currentState);
-  const orientation = quaternionToEuler(latestPacket);
-  const gpsValid = isGpsValid(latestPacket);
-  const backendUptime = systemStatus?.uptime_seconds ?? 0;
-  const backendPackets = systemStatus?.packets_received ?? packetsReceived;
-  const backendDropped = systemStatus?.packets_dropped ?? 0;
-  const clientCount = systemStatus?.websocket_clients ?? 0;
-  const shownPacketRate = packetRateHz || dataRateHz;
+  const flightState = latestPacket?.flight_state_name ?? 'NO_DATA';
+  const flightSeconds = latestPacket ? latestPacket.timestamp_ms / 1000 : 0;
+  const gpsValid = isGpsValid(latestPacket?.gps_lat, latestPacket?.gps_lon);
 
-  const drogueStatus = currentStateIndex >= FLIGHT_STATES.indexOf('APOGEE') ? 'EXPECTED' : 'STANDBY';
-  const mainStatus = currentStateIndex >= FLIGHT_STATES.indexOf('DESCENT') ? 'EXPECTED' : 'STANDBY';
-  const recoveryStatus = currentState === 'LANDED' ? 'COMPLETE' : currentStateIndex >= 3 ? 'ACTIVE' : 'STANDBY';
+  const euler = useMemo(() => {
+    if (!latestPacket) return { roll: 0, pitch: 0, yaw: 0 };
 
-  const runCommand = async (command: string, confirmation?: string) => {
-    if (confirmation && !window.confirm(confirmation)) return;
+    return quaternionToEuler(
+      latestPacket.quat_w,
+      latestPacket.quat_x,
+      latestPacket.quat_y,
+      latestPacket.quat_z,
+    );
+  }, [latestPacket]);
 
+  const recoveryStatus = useMemo(() => {
+    const index = FLIGHT_STATES.indexOf(flightState);
+    const apogeeIndex = FLIGHT_STATES.indexOf('APOGEE');
+    const descentIndex = FLIGHT_STATES.indexOf('DESCENT');
+    const landedIndex = FLIGHT_STATES.indexOf('LANDED');
+
+    return {
+      recovery: index >= landedIndex ? 'COMPLETE' : index >= apogeeIndex ? 'ACTIVE' : 'STANDBY',
+      drogue: index >= apogeeIndex ? 'EXPECTED' : 'STANDBY',
+      main: index >= descentIndex ? 'EXPECTED' : 'STANDBY',
+    };
+  }, [flightState]);
+
+  const canSendCommands = connected && !commandBusy;
+  const manualDeployLocked = !armed || !connected || Boolean(commandBusy);
+
+  const runCommand = async (command: string) => {
     try {
+      setCommandBusy(command);
       await sendCommand(command);
     } catch (error) {
       console.error(error);
-      window.alert(`Command failed: ${command}`);
+      addEvent(`Command failed locally: ${command}`, 'danger');
+    } finally {
+      setCommandBusy(null);
+      setConfirmCommand(null);
     }
   };
 
-  const exportCsv = async () => {
-    try {
-      const response = await fetch(`${API_URL}/api/export/csv`);
-      if (!response.ok) throw new Error(`Export failed: ${response.status}`);
-
-      const payload = (await response.json()) as { csv: string; rows: number };
-      const blob = new Blob([payload.csv], { type: 'text/csv;charset=utf-8' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-
-      link.href = url;
-      link.download = `can7usat_telemetry_${new Date().toISOString().replace(/[:.]/g, '-')}.csv`;
-      link.click();
-      URL.revokeObjectURL(url);
-
-      addEvent(`Exported ${payload.rows} telemetry rows`, 'info');
-    } catch (error) {
-      console.error(error);
-      addEvent('CSV export failed', 'danger');
-      window.alert('CSV export failed. Make sure the backend has telemetry history.');
+  const requestCommand = (command: string) => {
+    if (command === 'ARM') {
+      setConfirmCommand({
+        command,
+        title: 'ARM VEHICLE',
+        body: 'This will place the ground station in ARMED command mode. Manual deploy becomes available after this.',
+        danger: true,
+      });
+      return;
     }
+
+    if (command === 'MANUAL_DEPLOY') {
+      setConfirmCommand({
+        command,
+        title: 'MANUAL DEPLOY',
+        body: 'This is a recovery command. Confirm only if the vehicle is armed and manual deployment is intentional.',
+        danger: true,
+      });
+      return;
+    }
+
+    if (command === 'ABORT') {
+      setConfirmCommand({
+        command,
+        title: 'ABORT MISSION',
+        body: 'This will send an abort command and return the command panel to safe mode.',
+        danger: true,
+      });
+      return;
+    }
+
+    if (command === 'RESET') {
+      setConfirmCommand({
+        command,
+        title: 'RESET SESSION',
+        body: 'This will restart the backend mock mission from T+0, clear local chart history, and return the command panel to SAFE mode.',
+        danger: false,
+      });
+      return;
+    }
+
+    runCommand(command);
   };
 
   return (
@@ -153,27 +223,27 @@ export const Dashboard = () => {
         </div>
 
         <div className="mission-metrics">
-          <div className={`metric-pill ${connected ? 'ok' : 'danger'}`}>
+          <div className={`metric-pill ${connected ? 'good' : 'bad'}`}>
             <span>Telemetry</span>
-            <strong>{connecting ? 'CONNECTING' : connected ? 'CONNECTED' : 'DISCONNECTED'}</strong>
+            <strong>{connected ? 'CONNECTED' : 'DISCONNECTED'}</strong>
           </div>
           <div className="metric-pill">
             <span>Rate</span>
-            <strong>{shownPacketRate.toFixed(0)} Hz</strong>
+            <strong>{packetRateHz} Hz</strong>
           </div>
-          <div className={`metric-pill ${packetLossPercent > 0 ? 'warning' : ''}`}>
+          <div className="metric-pill">
             <span>Packet Loss</span>
             <strong>{packetLossPercent.toFixed(1)}%</strong>
           </div>
           <div className="metric-pill">
             <span>Packets</span>
-            <strong>{backendPackets}</strong>
+            <strong>{systemStatus?.packets_received ?? 0}</strong>
           </div>
           <div className="metric-pill">
             <span>Uptime</span>
-            <strong>{formatHms(backendUptime)}</strong>
+            <strong>{formatDuration(systemStatus?.uptime_seconds ?? 0)}</strong>
           </div>
-          <div className={`metric-pill ${mockMode ? 'warning' : 'ok'}`}>
+          <div className={`metric-pill ${mockMode ? 'warn' : 'good'}`}>
             <span>Mode</span>
             <strong>{mockMode ? 'MOCK' : 'LIVE'}</strong>
           </div>
@@ -182,68 +252,113 @@ export const Dashboard = () => {
 
       <main className="mission-main">
         <section className="mission-column left-column">
-          <div className="panel flight-panel">
+          <div className="panel timeline-panel">
             <div className="panel-header">Flight State Timeline</div>
             <div className="panel-body">
-              <div className="state-readout">{formatStateLabel(currentState)}</div>
+              <div className="current-state">{stateLabel(flightState)}</div>
               <div className="state-list">
-                {FLIGHT_STATES.map((state, index) => (
-                  <div
-                    key={state}
-                    className={`state-row ${index <= currentStateIndex ? 'active' : ''} ${index === currentStateIndex ? 'current' : ''}`}
-                  >
-                    <span className="state-dot" />
-                    <span>{formatStateLabel(state)}</span>
-                  </div>
-                ))}
+                {FLIGHT_STATES.map((state) => {
+                  const currentIndex = FLIGHT_STATES.indexOf(flightState);
+                  const stateIndex = FLIGHT_STATES.indexOf(state);
+                  const complete = currentIndex >= stateIndex && currentIndex !== -1;
+                  const active = flightState === state;
+
+                  return (
+                    <div
+                      key={state}
+                      className={`state-step ${complete ? 'complete' : ''} ${active ? 'active' : ''}`}
+                    >
+                      <span />
+                      {stateLabel(state)}
+                    </div>
+                  );
+                })}
               </div>
             </div>
           </div>
 
-          <div className="panel status-panel">
+          <div className={`panel arm-panel ${armed ? 'armed' : 'safe'}`}>
             <div className="panel-header">Arm / Safe + Recovery</div>
-            <div className="status-grid">
-              <div className="status-cell">
-                <span>Vehicle</span>
-                <strong className={armed ? 'danger-text' : 'ok-text'}>{armed ? 'ARMED' : 'SAFE'}</strong>
-              </div>
-              <div className="status-cell">
-                <span>Recovery</span>
-                <strong>{recoveryStatus}</strong>
-              </div>
-              <div className="status-cell">
-                <span>Drogue</span>
-                <strong>{drogueStatus}</strong>
-              </div>
-              <div className="status-cell">
-                <span>Main</span>
-                <strong>{mainStatus}</strong>
+            <div className="panel-body">
+              <div className="status-grid">
+                <div className="status-cell">
+                  <span>Vehicle</span>
+                  <strong className={armed ? 'danger-text' : 'good-text'}>
+                    {armed ? 'ARMED' : 'SAFE'}
+                  </strong>
+                </div>
+                <div className="status-cell">
+                  <span>Recovery</span>
+                  <strong>{recoveryStatus.recovery}</strong>
+                </div>
+                <div className="status-cell">
+                  <span>Drogue</span>
+                  <strong>{recoveryStatus.drogue}</strong>
+                </div>
+                <div className="status-cell">
+                  <span>Main</span>
+                  <strong>{recoveryStatus.main}</strong>
+                </div>
               </div>
             </div>
           </div>
 
           <div className="panel command-panel">
-            <div className="panel-header">Command Panel</div>
-            <div className="panel-body command-grid">
-              <button
-                className={`command-button ${armed ? 'safe-button' : 'arm-button'}`}
-                onClick={() => runCommand(armed ? 'DISARM' : 'ARM', armed ? 'Disarm vehicle?' : 'Arm vehicle?')}
-              >
-                {armed ? 'DISARM VEHICLE' : 'ARM VEHICLE'}
-              </button>
-              <button
-                className="command-button warning-button"
-                disabled={!armed}
-                onClick={() => runCommand('MANUAL_DEPLOY', 'Manual deploy command? Use only for controlled testing.')}
-              >
-                MANUAL DEPLOY
-              </button>
-              <button className="command-button abort-button" onClick={() => runCommand('ABORT', 'Abort mission command?')}>
-                ABORT
-              </button>
-              <button className="command-button" onClick={() => runCommand('RESET', 'Reset command state?')}>
-                RESET
-              </button>
+            <div className="panel-header">
+              Command Panel
+              <span className={`command-lock ${armed ? 'armed' : 'safe'}`}>
+                {armed ? 'ARMED' : 'SAFE LOCK'}
+              </span>
+            </div>
+
+            <div className="panel-body">
+              {!connected && (
+                <div className="command-note danger-note">
+                  Commands disabled: telemetry link disconnected.
+                </div>
+              )}
+
+              {commandBusy && (
+                <div className="command-note">
+                  Sending command: {commandBusy}
+                </div>
+              )}
+
+              {!armed ? (
+                <CommandButton
+                  label="ARM VEHICLE"
+                  danger
+                  disabled={!canSendCommands}
+                  onClick={() => requestCommand('ARM')}
+                />
+              ) : (
+                <CommandButton
+                  label="DISARM VEHICLE"
+                  active
+                  disabled={!canSendCommands}
+                  onClick={() => requestCommand('DISARM')}
+                />
+              )}
+
+              <CommandButton
+                label={armed ? 'MANUAL DEPLOY' : 'MANUAL DEPLOY LOCKED'}
+                warning
+                disabled={manualDeployLocked}
+                onClick={() => requestCommand('MANUAL_DEPLOY')}
+              />
+
+              <CommandButton
+                label="ABORT"
+                danger
+                disabled={!canSendCommands}
+                onClick={() => requestCommand('ABORT')}
+              />
+
+              <CommandButton
+                label="RESET SESSION"
+                disabled={!canSendCommands}
+                onClick={() => requestCommand('RESET')}
+              />
             </div>
           </div>
         </section>
@@ -252,51 +367,53 @@ export const Dashboard = () => {
           <div className="telemetry-card-grid">
             <div className="telemetry-card">
               <span>Altitude</span>
-              <strong>{latestPacket ? latestPacket.altitude_m.toFixed(1) : '--'} m</strong>
+              <strong>{(latestPacket?.altitude_m ?? 0).toFixed(1)} m</strong>
             </div>
             <div className="telemetry-card">
-              <span>Velocity</span>
-              <strong>{latestPacket ? latestPacket.velocity_ms.toFixed(1) : '--'} m/s</strong>
+              <span>Vertical Velocity</span>
+              <strong>{(latestPacket?.velocity_ms ?? 0).toFixed(1)} m/s</strong>
             </div>
             <div className="telemetry-card">
               <span>Max Altitude</span>
               <strong>{maxAltitude.toFixed(1)} m</strong>
             </div>
             <div className="telemetry-card">
-              <span>Max Velocity</span>
+              <span>Max Vertical Velocity</span>
               <strong>{maxVelocity.toFixed(1)} m/s</strong>
             </div>
             <div className="telemetry-card wide-card">
               <span>Flight Timer</span>
-              <strong>{formatFlightTime(latestPacket?.timestamp_ms)}</strong>
+              <strong>{formatDuration(flightSeconds)}</strong>
             </div>
           </div>
 
-          <div className="panel chart-panel">
-            <div className="panel-header">Altitude Chart</div>
-            <div className="chart-body">
-              <TelemetryChart data={altitudeHistory} unit="m" height={170} />
+          <div className="chart-grid-console">
+            <div className="panel chart-panel square-chart">
+              <div className="panel-header">Altitude Chart</div>
+              <div className="chart-body">
+                <OperatorChart data={altitudeHistory} label="Altitude" unit="m" />
+              </div>
             </div>
-          </div>
 
-          <div className="panel chart-panel">
-            <div className="panel-header">Velocity Chart</div>
-            <div className="chart-body">
-              <TelemetryChart data={velocityHistory} unit="m/s" height={170} />
+            <div className="panel chart-panel square-chart">
+              <div className="panel-header">Vertical Velocity Chart</div>
+              <div className="chart-body">
+                <OperatorChart data={velocityHistory} label="Vertical Velocity" unit="m/s" />
+              </div>
             </div>
-          </div>
 
-          <div className="panel chart-panel compact-chart">
-            <div className="panel-header">Derived Acceleration Chart</div>
-            <div className="chart-body">
-              <TelemetryChart data={accelerationHistory} unit="m/s2" height={120} />
+            <div className="panel chart-panel acceleration-wide">
+              <div className="panel-header">Derived Vertical Acceleration Chart</div>
+              <div className="chart-body">
+                <OperatorChart data={accelerationHistory} label="Derived Vertical Acceleration" unit="m/s2" />
+              </div>
             </div>
           </div>
         </section>
 
         <section className="mission-column right-column">
           <div className="panel orientation-panel">
-            <div className="panel-header">3D Rocket Orientation</div>
+            <div className="panel-header">Attitude Visualizer</div>
             <div className="rocket-viewport">
               <Rocket3D
                 quat_w={latestPacket?.quat_w ?? 1}
@@ -310,13 +427,13 @@ export const Dashboard = () => {
           <div className="panel quaternion-panel">
             <div className="panel-header">Quaternion / Attitude</div>
             <div className="quat-grid">
-              <div><span>W</span><strong>{latestPacket?.quat_w.toFixed(4) ?? '1.0000'}</strong></div>
-              <div><span>X</span><strong>{latestPacket?.quat_x.toFixed(4) ?? '0.0000'}</strong></div>
-              <div><span>Y</span><strong>{latestPacket?.quat_y.toFixed(4) ?? '0.0000'}</strong></div>
-              <div><span>Z</span><strong>{latestPacket?.quat_z.toFixed(4) ?? '0.0000'}</strong></div>
-              <div><span>Roll</span><strong>{orientation.roll.toFixed(1)}Â°</strong></div>
-              <div><span>Pitch</span><strong>{orientation.pitch.toFixed(1)}Â°</strong></div>
-              <div><span>Yaw</span><strong>{orientation.yaw.toFixed(1)}Â°</strong></div>
+              <div><span>W</span><strong>{(latestPacket?.quat_w ?? 1).toFixed(4)}</strong></div>
+              <div><span>X</span><strong>{(latestPacket?.quat_x ?? 0).toFixed(4)}</strong></div>
+              <div><span>Y</span><strong>{(latestPacket?.quat_y ?? 0).toFixed(4)}</strong></div>
+              <div><span>Z</span><strong>{(latestPacket?.quat_z ?? 0).toFixed(4)}</strong></div>
+              <div><span>Roll</span><strong>{euler.roll.toFixed(1)}°</strong></div>
+              <div><span>Pitch</span><strong>{euler.pitch.toFixed(1)}°</strong></div>
+              <div><span>Yaw</span><strong>{euler.yaw.toFixed(1)}°</strong></div>
             </div>
           </div>
 
@@ -324,9 +441,9 @@ export const Dashboard = () => {
             <div className="panel-header">GPS + Map</div>
             <div className="panel-body">
               <div className="gps-lines">
-                <div><span>Latitude</span><strong>{latestPacket ? latestPacket.gps_lat.toFixed(6) : '--'}</strong></div>
-                <div><span>Longitude</span><strong>{latestPacket ? latestPacket.gps_lon.toFixed(6) : '--'}</strong></div>
-                <div><span>Fix</span><strong className={gpsValid ? 'ok-text' : 'warning-text'}>{gpsValid ? 'VALID' : 'WAITING'}</strong></div>
+                <div><span>Latitude</span><strong>{(latestPacket?.gps_lat ?? 0).toFixed(6)}</strong></div>
+                <div><span>Longitude</span><strong>{(latestPacket?.gps_lon ?? 0).toFixed(6)}</strong></div>
+                <div><span>Fix</span><strong className={gpsValid ? 'good-text' : 'warn-text'}>{gpsValid ? 'VALID' : 'WAIT'}</strong></div>
               </div>
               <GPSMap lat={latestPacket?.gps_lat ?? 0} lon={latestPacket?.gps_lon ?? 0} valid={gpsValid} />
             </div>
@@ -335,55 +452,93 @@ export const Dashboard = () => {
           <div className="panel diagnostics-panel">
             <div className="panel-header">Diagnostics</div>
             <div className="diagnostic-list">
-              <div><span>Backend</span><strong className={systemStatus ? 'ok-text' : 'danger-text'}>{systemStatus ? 'ONLINE' : 'OFFLINE'}</strong></div>
-              <div><span>Radio / WS</span><strong className={connected ? 'ok-text' : 'danger-text'}>{connected ? 'NOMINAL' : 'LOST'}</strong></div>
-              <div><span>GPS</span><strong className={gpsValid ? 'ok-text' : 'warning-text'}>{gpsValid ? 'VALID' : 'NO FIX'}</strong></div>
-              <div><span>Dropped</span><strong className={backendDropped > 0 ? 'warning-text' : 'ok-text'}>{backendDropped}</strong></div>
-              <div><span>Clients</span><strong>{clientCount}</strong></div>
+              <div><span>Backend</span><strong className={systemStatus ? 'good-text' : 'warn-text'}>{systemStatus ? 'ONLINE' : 'WAIT'}</strong></div>
+              <div><span>Radio / WS</span><strong className={connected ? 'good-text' : 'danger-text'}>{connected ? 'NOMINAL' : 'LOST'}</strong></div>
+              <div><span>GPS</span><strong className={gpsValid ? 'good-text' : 'warn-text'}>{gpsValid ? 'VALID' : 'WAIT'}</strong></div>
+              <div><span>Decoder</span><strong className={(systemStatus?.packets_dropped ?? 0) > 0 ? 'warn-text' : 'good-text'}>{(systemStatus?.packets_dropped ?? 0) > 0 ? 'DROPS' : 'CLEAN'}</strong></div>
             </div>
           </div>
         </section>
       </main>
 
       <footer className="mission-bottom">
-        <div className="bottom-panel event-log">
+        <div className="bottom-panel event-panel">
           <div className="bottom-header">
-            <span>Event Log</span>
-            <button onClick={clearEvents}>Clear</button>
+            <h3>Event Log</h3>
+            <button className="clear-button" onClick={clearEvents}>Clear</button>
           </div>
           <div className="event-list">
             {events.length === 0 ? (
-              <div className="empty-row">No mission events yet.</div>
+              <div className="empty-row">No events yet.</div>
             ) : (
-              events.slice(0, 8).map((event) => (
+              events.map((event) => (
                 <div key={event.id} className={`event-row ${event.level}`}>
-                  <time>{new Date(event.timestamp).toLocaleTimeString()}</time>
-                  <span>{event.message}</span>
+                  <span>{new Date(event.timestamp).toLocaleTimeString()}</span>
+                  <strong>{event.message}</strong>
                 </div>
               ))
             )}
           </div>
         </div>
 
-        <div className="bottom-panel warnings-panel">
+        <div className="bottom-panel warning-panel">
           <div className="bottom-header">
-            <span>Warnings / Alerts</span>
-            <button onClick={exportCsv}>Export CSV</button>
+            <h3>Warnings / Alerts</h3>
+            <a className="export-button" href={`${API_URL}/api/export/csv`} target="_blank" rel="noreferrer">
+              Export CSV
+            </a>
           </div>
           <div className="warning-list">
             {warnings.length === 0 ? (
-              <div className="empty-row ok-text">No active warnings.</div>
+              <div className="empty-row good-text">No active warnings.</div>
             ) : (
-              warnings.slice(0, 5).map((warning) => (
-                <div key={warning} className="warning-row">âš  {warning}</div>
+              warnings.map((warning) => (
+                <div key={warning} className="warning-row">
+                  ⚠ {warning}
+                </div>
               ))
             )}
           </div>
         </div>
       </footer>
+
+      {confirmCommand && (
+        <div className="confirm-overlay" role="dialog" aria-modal="true">
+          <div className={`confirm-modal ${confirmCommand.danger ? 'danger' : ''}`}>
+            <div className="confirm-kicker">
+              {confirmCommand.danger ? 'SAFETY CONFIRMATION REQUIRED' : 'CONFIRM COMMAND'}
+            </div>
+            <h2>{confirmCommand.title}</h2>
+            <p>{confirmCommand.body}</p>
+
+            <div className="confirm-actions">
+              <button
+                className="confirm-cancel"
+                disabled={Boolean(commandBusy)}
+                onClick={() => setConfirmCommand(null)}
+              >
+                Cancel
+              </button>
+              <button
+                className={confirmCommand.danger ? 'confirm-danger' : 'confirm-send'}
+                disabled={Boolean(commandBusy)}
+                onClick={() => runCommand(confirmCommand.command)}
+              >
+                {commandBusy ? 'Sending...' : `Confirm ${confirmCommand.command}`}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
+
+export default Dashboard;
+
+
+
+
 
 
 
