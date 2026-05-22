@@ -305,27 +305,6 @@ Run `backend/benchmarks/run_benchmarks.py` to regenerate SVGs into `docs/images/
 
 See: [docs/PERFORMANCE.md](docs/PERFORMANCE.md)
 
----
-
-## Updated Ground Station Interface
-
-This branch includes a major redesign and telemetry workflow upgrade for the CAN-7USAT ground station.
-
-Key additions:
-
-- Aerospace-style Mission Control interface
-- Engineering Telemetry matrix
-- Flight Analysis post-flight review page
-- Operator-style System Logs console
-- Mission Config data-source truth table
-- Backend mock reset endpoint
-- Demo flight profile with full mission sequence
-- Real / Derived / Simulated data labeling
-- Filtered derived acceleration for cleaner telemetry plots
-
-For the full run instructions and demo flow, see:
-
-    docs/DEMO_GUIDE.md
 
 <!-- FRONTEND_ENDPOINTS_BEGIN -->
 ## Frontend Endpoint Configuration
@@ -404,4 +383,5 @@ The interface uses explicit data-source labels:
 
 This avoids presenting unsupported fake sensor channels as real telemetry.
 <!-- FRONTEND_ENDPOINTS_END -->
+
 
